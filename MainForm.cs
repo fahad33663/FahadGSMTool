@@ -1,21 +1,37 @@
 // ================= CLEAN POLISHED VERSION =================
 
 using System;
-using System.Windows.Forms;
+using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Drawing2D;
-using System.Diagnostics;
-using System.Threading.Tasks;
+using System.IO;
 using System.Management;
+using System.Net.Http;
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
-using System.IO;
-using System.Net.Http;
-using System.Collections.Generic;
+using System.Threading.Tasks;
+using System.Windows.Forms;
 namespace FAHAD_GSM_TOOL
 {
     public partial class MainForm : Form
     {
+        // ===== ADVANCED SECURITY =====
+
+        [DllImport("kernel32.dll")]
+        static extern bool IsDebuggerPresent();
+
+        [DllImport("kernel32.dll")]
+        static extern bool CheckRemoteDebuggerPresent(IntPtr hProcess, ref bool isDebuggerPresent);
+
+        string[] advancedKeywords =
+ {
+    "dbg","debug","trace",
+    "dnspy","x64dbg","ollydbg",
+    "ida","cheatengine",
+    "fiddler","wireshark","burp"
+};
 
         // ===== SECURITY CONFIG =====
 
@@ -738,16 +754,22 @@ Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             };
             // ===== SECURITY START =====
 
-            // Block if USB already running
             if (IsUsbToolRunning())
             {
-                MessageBox.Show(
-                    "Close USB sharing tools before opening tool",
+                var result = MessageBox.Show(
+                    "USB Redirector is running.\nClose it automatically?",
                     "Security",
-                    MessageBoxButtons.OK,
+                    MessageBoxButtons.YesNo,
                     MessageBoxIcon.Warning);
 
-                Environment.Exit(0);
+                if (result == DialogResult.Yes)
+                {
+                   
+                }
+                else
+                {
+                    Environment.Exit(0);
+                }
             }
 
             // Start security timer
@@ -755,7 +777,10 @@ Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             securityTimer.Tick += SecurityTimer_Tick;
             securityTimer.Start();
 
-
+            if (IsDebugToolRunning() || IsUsbToolRunning())
+            {
+                Environment.Exit(0);
+            }
 
 
         }
@@ -763,24 +788,61 @@ Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
 
         bool IsDebugToolRunning()
         {
+            // 🔴 Basic .NET check
             if (Debugger.IsAttached)
                 return true;
 
+            // 🔴 Native check
+            if (IsDebuggerPresent())
+                return true;
+
+            bool remoteDbg = false;
+            CheckRemoteDebuggerPresent(Process.GetCurrentProcess().Handle, ref remoteDbg);
+
+            if (remoteDbg)
+                return true;
+
+            // 🔴 Process scan (renamed tools detect)
             foreach (var p in Process.GetProcesses())
             {
-                if (debugTools.Contains(p.ProcessName.ToLower()))
+                string name = p.ProcessName.ToLower();
+
+                if (advancedKeywords.Any(k => name.Contains(k)))
                     return true;
             }
+
+            // 🔴 Timing check (debugger slow karta hai)
+            var sw = Stopwatch.StartNew();
+            System.Threading.Thread.Sleep(10);
+            sw.Stop();
+
+            if (sw.ElapsedMilliseconds > 50)
+                return true;
+
             return false;
         }
 
         bool IsUsbToolRunning()
         {
+            string[] allowed =
+            {
+        "usbredirector",
+        "usbredirectortechssrv",
+        "flexihub",
+        "virtualhere",
+        "usbip"
+    };
+
             foreach (var p in Process.GetProcesses())
             {
-                if (usbTools.Contains(p.ProcessName.ToLower()))
+                string name = p.ProcessName.ToLower();
+
+                if (allowed.Contains(name))
+                {
                     return true;
+                }
             }
+
             return false;
         }
 
@@ -3183,9 +3245,32 @@ $"https://fahad64.com/tool_api/get_image.php?key=FahadToolSecure2026&token={toke
             btnFastbootFlasher.Visible = false;
             btnComingSoon.Visible = false;
         }
-        
-        
-        
+
+
+        void CloseUsbRedirectorSafely()
+        {
+            try
+            {
+                foreach (var p in Process.GetProcesses())
+                {
+                    string name = p.ProcessName.ToLower();
+
+                    if (name.Contains("usbredirector"))
+                    {
+                        // try graceful close
+                        p.CloseMainWindow();
+
+                        // wait little
+                        if (!p.WaitForExit(2000))
+                        {
+                            // force only if needed
+                            p.Kill();
+                        }
+                    }
+                }
+            }
+            catch { }
+        }
     }
 
 }
