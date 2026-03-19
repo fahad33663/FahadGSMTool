@@ -1,4 +1,4 @@
-﻿// ================= CLEAN POLISHED VERSION =================
+// ================= CLEAN POLISHED VERSION =================
 
 using System;
 using System.Windows.Forms;
@@ -16,7 +16,31 @@ namespace FAHAD_GSM_TOOL
 {
     public partial class MainForm : Form
     {
+
+        // ===== SECURITY CONFIG =====
+
+        string[] debugTools =
+        {
+    "x64dbg","ollydbg","dnspy","ida","ida64",
+    "cheatengine","processhacker"
+};
+
+        string[] usbTools =
+        {
+    "usbredirector",
+    "usbredirectortechssrv",
+    "flexihub",
+    "virtualhere",
+    "usbip"
+};
+
+        string[] proxyTools =
+        {
+    "fiddler","burp","charles","mitmproxy","wireshark","proxifier"
+};
+
         System.Windows.Forms.Timer securityTimer = new System.Windows.Forms.Timer();
+       
         string[] blockedProcesses =
 {
     "usbredirector",
@@ -712,10 +736,83 @@ Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                 if (WindowState != FormWindowState.Minimized)
                     AlignLayout();
             };
+            // ===== SECURITY START =====
 
-          
-        
+            // Block if USB already running
+            if (IsUsbToolRunning())
+            {
+                MessageBox.Show(
+                    "Close USB sharing tools before opening tool",
+                    "Security",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
 
+                Environment.Exit(0);
+            }
+
+            // Start security timer
+            securityTimer.Interval = 1000;
+            securityTimer.Tick += SecurityTimer_Tick;
+            securityTimer.Start();
+
+
+
+
+        }
+        // ===== SECURITY FUNCTIONS =====
+
+        bool IsDebugToolRunning()
+        {
+            if (Debugger.IsAttached)
+                return true;
+
+            foreach (var p in Process.GetProcesses())
+            {
+                if (debugTools.Contains(p.ProcessName.ToLower()))
+                    return true;
+            }
+            return false;
+        }
+
+        bool IsUsbToolRunning()
+        {
+            foreach (var p in Process.GetProcesses())
+            {
+                if (usbTools.Contains(p.ProcessName.ToLower()))
+                    return true;
+            }
+            return false;
+        }
+
+        bool IsProxyToolRunning()
+        {
+            foreach (var p in Process.GetProcesses())
+            {
+                if (proxyTools.Contains(p.ProcessName.ToLower()))
+                    return true;
+            }
+            return false;
+        }
+
+        void SecurityTimer_Tick(object sender, EventArgs e)
+        {
+            if (IsDebugToolRunning())
+            {
+                MessageBox.Show("Debug tool detected!");
+                Environment.Exit(0);
+            }
+
+            if (IsProxyToolRunning())
+            {
+                MessageBox.Show("Proxy tool detected!");
+                Environment.Exit(0);
+            }
+
+            if (IsUsbToolRunning())
+            {
+                MessageBox.Show("USB sharing tool not allowed!");
+                Environment.Exit(0);
+            }
         }
         void DrawRoundedRectangle(Graphics g, Pen pen, Rectangle rect, int radius)
         {
@@ -782,7 +879,7 @@ Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
 
             // SECURITY TIMER START
             securityTimer.Interval = 3000;
-            securityTimer.Tick += SecurityTimer_Tick;
+            
             securityTimer.Start();
         }
         private List<string> fastbootBuffer = new List<string>();
@@ -3086,79 +3183,9 @@ $"https://fahad64.com/tool_api/get_image.php?key=FahadToolSecure2026&token={toke
             btnFastbootFlasher.Visible = false;
             btnComingSoon.Visible = false;
         }
-        void SecurityTimer_Tick(object sender, EventArgs e)
-        {
-            if (IsSecurityToolRunning())
-            {
-                MessageBox.Show(
-                "Security violation detected.\nTool will close.",
-                "FAHAD GSM TOOL",
-                MessageBoxButtons.OK,
-                MessageBoxIcon.Warning);
-
-                Environment.Exit(0);
-            }
-        }
-        bool IsSecurityToolRunning()
-        {
-            string[] blocked =
-            {
-        "fiddler",
-        "burp",
-        "charles",
-        "mitmproxy",
-        "wireshark",
-        "httpdebugger",
-        "proxifier",
-        "usbredirector",
-        "usbredirectortechssrv",
-        "flexihub",
-        "virtualhere",
-        "usbip",
-        "x64dbg",
-        "ollydbg",
-        "ida",
-        "ida64",
-        "dnspy",
-        "cheatengine",
-        "processhacker"
-    };
-
-            foreach (var p in Process.GetProcesses())
-            {
-                string name = p.ProcessName.ToLower();
-
-                foreach (string bad in blocked)
-                {
-                    if (name == bad)
-                    {
-                        MessageBox.Show("Blocked process detected: " + name);
-                        return true;
-                    }
-                }
-            }
-
-            return false;
-        }
-        void KillBlockedProcesses()
-        {
-            foreach (var p in Process.GetProcesses())
-            {
-                string name = p.ProcessName.ToLower();
-
-                foreach (string bad in blockedProcesses)
-                {
-                    if (name.Contains(bad))
-                    {
-                        try
-                        {
-                            p.Kill();
-                        }
-                        catch { }
-                    }
-                }
-            }
-        }
+        
+        
+        
     }
 
 }
